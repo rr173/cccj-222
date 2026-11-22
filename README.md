@@ -12,12 +12,15 @@
 | `ccs/consumer_state.py` | 注册/撤销/改参、拉取预留令牌、连续前沿确认、迟到补发、重放窗口 | 不删除源数据 |
 | `ccs/cleanup.py` | 按全员保留需求 + 迟到保留裁决删除，写审计日志 | 唯一允许删除**订阅数据**的地方；不碰归档 |
 | `ccs/field_history.py` | **可选**字段历史归档与审计查询（默认关闭）：摄入同事务写归档索引，按 `(行键, 字段, 位置窗口, 知识截点)` 输出历史区间 | 不回填旧库、不跨源、不感知消费者 |
+| `ccs/inventory.py` | **可选**当前库存物化（默认关闭）：摄入同事务增量维护"每个库位多少件、多少行贡献"的现存货表 | 不回填旧库、不跨源；只看 `after.bin`/`after.qty`；不改变订阅与字段查询合同 |
 
 `oracle/fold_oracle.py` 是**独立预期模型**：不 import 任何 `ccs` 代码，
 用函数式 reduce + 世代状态机的另一种写法逐笔折叠，测试只拿它对拍，
 预期数据从不调用产品的净变化函数生成。
 `oracle/history_oracle.py` 是字段历史的**独立参考实现**：栈式配对归约 +
 从位置 0 顺序重放（产品被禁止的求值路线），同样不 import 任何 `ccs` 代码。
+`oracle/inventory_oracle.py` 是当前库存的**独立参考实现**：每次都把全部已收到
+事务按源位置从头全量折叠（产品被禁止的求值路线），与增量物化逐次对拍。
 
 ## 2. 关键语义
 
@@ -48,9 +51,9 @@
 ## 3. 目录
 
 ```
-ccs/            产品代码（schema.sql + 四个模块 + field_history.py + cli.py）
-oracle/         独立预期模型（fold_oracle.py / history_oracle.py，禁止 import ccs）
-tests/          确定性对拍、真实多进程 worker 与驱动、崩溃恢复、字段历史演练
+ccs/            产品代码（schema.sql + 四个模块 + field_history.py + inventory.py + cli.py）
+oracle/         独立预期模型（fold_oracle.py / history_oracle.py / inventory_oracle.py，禁止 import ccs）
+tests/          确定性对拍、真实多进程 worker 与驱动、崩溃恢复、字段历史与库存物化演练
 demo/           演练资料、可复跑脚本、输出归档
 bin/ccs         隔离模式（python -I）CLI 启动器
 ```
@@ -180,3 +183,103 @@ bin/ccs --db "$DB" field-history r5 v 150 400 --cutoff 2   # 较新截点的答�
 
 测试见 `tests/test_field_history.py`：手算小例子 + 独立参考实现矩阵对拍 +
 真实清理后重开核对 + 未启用库行为 + CLI 端到端。
+
+## 7. 当前库存物化（可选功能，默认关闭）
+
+配货服务需要一张随 CCS 摄入自动更新的**当前库存表**：每个库位现在有多少件、
+由多少条库存行贡献。服务重启后直接读这张落盘表，不遍历订阅记录
+（`txn`/`change_row`），也不逐行查询字段历史。
+
+### 启用（仅限单源空库、首次摄入前）
+
+```bash
+bin/ccs --db "$DB" enable-inventory
+```
+
+- 只能在还没有任何事务的库上启用（`INVENTORY_REQUIRES_EMPTY_DB`）：不回填旧库，
+  启用前已存在的数据不进库存日志；
+- 启用后 `ingest` 在**同一个 SQLite 事务**里增量维护库存日志与汇总
+  （`inv_op` / `inv_field_write` / `inv_row_state` / `inv_bin_summary` / `inv_meta`），
+  库存计算与源端摄入一同成功或失败；未启用的库连 `inv_*` 表都不创建，行为完全不变；
+- 启用后只支持单源实例，`switch-source` 会被拒绝（`INVENTORY_SINGLE_SOURCE`）；
+- 可与 `enable-history` 同时启用，两个特性各自独立，互不改变对方的输出合同；
+- 启用是幂等的，重复调用返回 `already_enabled: true`。
+
+### 库存规则（只看 `after` 中的 `bin` 和 `qty`，不从前镜像取值）
+
+- 按**源位置**解释迄今成功摄入的事务，按**操作位置**解释同一事务中的库存行：
+  INSERT 建立新行并重置两个字段（不继承上一生命周期）；DELETE 清空该行；
+  UPDATE 只改 `after` 里明确出现的字段；**尚未插入或已删除的行不接受 UPDATE**；
+- 一行只有同时具备"非空字符串 `bin`"与"非负整数 `qty`（布尔值不算整数）"
+  时才贡献一个库位。字段缺失与显式无效值都不贡献；UPDATE 省略某字段=保留，
+  显式写 `null` 或其他无效值=清掉该字段的贡献资格；
+- 库位名按原字符串区分（SQLite BINARY 排序）。一条有效行在一个库位算一条贡献行；
+  某库位贡献行数降到 0 时该库位整行移除。
+
+**迟到事务不打补丁、按源位置重算受影响行。** 例如一行先入 A、后收到移去 B 的
+更新，若之后才到达一笔源位置介于两者之间的出库删除，则该删除在源顺序上终结了
+该行，后来的 B 更新不再生效，B 的总数与贡献行相应扣减；若再补到一笔同区间的
+重插，更新又会在新生命周期上重新生效。产品从不把新到达的操作简单当成对当前行
+的补丁。
+
+### 读取（只读，单快照）
+
+```bash
+bin/ccs --db "$DB" inventory
+```
+
+输出已提交的最新 `arrival_seq`（空库为 0）和按库位名排序的 JSON 汇总；
+水位与全部库位在同一个读事务里取自同一提交快照：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "arrival_seq": 3,
+    "bins": [
+      {"bin": "B", "total_qty": 5, "contributing_rows": 1}
+    ]
+  }
+}
+```
+
+只交付当前汇总：没有历史汇总查询，也没有新的订阅接口。
+
+### 增量维护与验证方式（不全量重算）
+
+- 每次摄入只收集**本变更段涉及的 row_id**，对每个这样的行用索引定位其当前贡献：
+  最后一次 INSERT、其后是否存在 DELETE、本生命周期内 `bin`/`qty` 各自的最后一次
+  显式写入（`(row_id, ...)` 前缀上的索引搜索/有界区间扫描），不线性重放该行的
+  全部历史，也不扫描其他行；随后只调整该行**原先和现在贡献的库位**；
+- 库存日志（`inv_op`/`inv_field_write`）与物化结果不参与订阅清理：`cleanup`
+  仍只释放 `txn`/`change_row`/`late_notice`。因此清理后重开库再补入旧位置的迟到
+  事务，仍能修正汇总；已占用的事务标识与源位置区间永不复用
+  （重用返回 `DUP_TXN` / `POSITION_OVERLAP`），不会与已接受事务重叠；
+- 原子性：汇总写入失败会让整笔摄入回滚，不留下半次调拨、不前进 `arrival_seq`、
+  不占用源位置。
+
+测试见 `tests/test_inventory.py`（由 `tests/run_all.sh` 统一调度）：
+
+- **手算反序到达**：逐次核对迟到删除使"未来补丁"失效、迟到重插又使补丁生效，
+  以及同一事务里的多行多库位调拨；
+- **独立全量折叠对拍**：`oracle/inventory_oracle.py` 不 import 任何 `ccs` 代码，
+  每次把全部已收事务按源位置从头折叠；多组随机段在随机反序到达下，每摄入一笔
+  就与产品物化汇总对拍一次；
+- **真实清理后重开**：删掉全部订阅数据、重开库，再补一笔旧位置事务，汇总仍被
+  正确修正；
+- **回滚**：用测试侧 SQLite 触发器制造一次可复现的汇总写入失败（生产代码无故障
+  开关），核对源端数据、到达水位、库存日志与汇总整体回到摄入前；
+- **不全量重算的可检查依据**：重算查询的 `EXPLAIN QUERY PLAN` 全部为索引
+  SEARCH；单行摄入在每行历史差 50 倍的两个库上追踪到的语句数恒定、每条库存日志
+  读取都带行/事务/位置定位；未涉及库位的汇总行逐字节不变。
+
+### 手动示例
+
+```bash
+DB=$(mktemp -u)/inv.db
+bin/ccs --db "$DB" enable-inventory
+bin/ccs --db "$DB" begin-source lake-v1
+bin/ccs --db "$DB" inventory                        # 空库：arrival_seq=0, bins=[]
+bin/ccs --db "$DB" ingest demo/segments/T1.json
+bin/ccs --db "$DB" inventory
+```

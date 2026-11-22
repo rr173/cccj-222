@@ -1,1 +1,1 @@
-+ ccs pull alpha --token 004bd259be624455ac4f8d24bb1660e4
++ ccs pull alpha --token 6e5e22e93a6b40fe9b477732e1999b00

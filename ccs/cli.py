@@ -11,7 +11,7 @@ import argparse
 import json
 import sys
 
-from ccs import source_store, consumer_state, cleanup, field_history
+from ccs import source_store, consumer_state, cleanup, field_history, inventory
 from ccs.source_store import StoreError
 
 
@@ -101,6 +101,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("enable-history",
                    help="启用字段历史归档（仅限空库；启用后摄入同事务写归档索引）")
+
+    sub.add_parser("enable-inventory",
+                   help="启用当前库存物化（仅限空库；启用后摄入同事务增量维护库存汇总）")
+
+    sub.add_parser("inventory",
+                   help="只读输出已提交最新 arrival_seq 与按库位名排序的库存 JSON 汇总")
 
     fh = sub.add_parser("field-history",
                         help="查询指定行键/字段在源位置窗口 [start,end) 内、"
@@ -198,6 +204,10 @@ def main(argv: list[str] | None = None) -> int:
             return _ok({"entries": cleanup.cleanup_log(conn)})
         if args.cmd == "enable-history":
             return _ok(field_history.enable_history(conn))
+        if args.cmd == "enable-inventory":
+            return _ok(inventory.enable_inventory(conn))
+        if args.cmd == "inventory":
+            return _ok(inventory.read_summary(conn))
         if args.cmd == "field-history":
             return _ok(field_history.query_field_history(
                 conn, args.row_id, args.field, args.start, args.end, args.cutoff))

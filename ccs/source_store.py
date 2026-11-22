@@ -87,6 +87,13 @@ def switch_source(conn: sqlite3.Connection, new_source_version: str) -> dict:
             "field history archive only supports a single-source instance; "
             "switching source is refused while the archive is enabled",
         )
+    from . import inventory
+    if inventory.inventory_enabled(conn):
+        raise StoreError(
+            "INVENTORY_SINGLE_SOURCE",
+            "inventory materialization only supports a single-source instance; "
+            "switching source is refused while the feature is enabled",
+        )
     conn.execute("UPDATE meta SET source_version=? WHERE id=1", (new_source_version,))
     return {"old_source_version": old, "source_version": new_source_version}
 
@@ -246,6 +253,11 @@ def ingest_segment(conn: sqlite3.Connection, segment: dict) -> dict:
         from . import field_history  # 函数级导入，避免模块循环依赖
         if field_history.history_enabled(conn):
             field_history.archive_segment(conn, segment, source_version, arrival_seq)
+        # 当前库存物化（可选功能）：同样在本事务内增量维护，任一失败整体回滚，
+        # 不留下半次调拨、不推进到达序号、不占用源位置。
+        from . import inventory
+        if inventory.inventory_enabled(conn):
+            inventory.apply_segment(conn, segment, source_version, arrival_seq)
         conn.execute("COMMIT")
     except StoreError:
         conn.execute("ROLLBACK")
