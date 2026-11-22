@@ -1,0 +1,25 @@
+{
+  "txn_id": "T7",
+  "ops": [
+    {
+      "source_position": 700,
+      "row_id": "r6",
+      "op": "INSERT",
+      "before": null,
+      "after": {
+        "v": 70
+      }
+    },
+    {
+      "source_position": 701,
+      "row_id": "r6",
+      "op": "UPDATE",
+      "before": {
+        "v": 70
+      },
+      "after": {
+        "v": 71
+      }
+    }
+  ]
+}

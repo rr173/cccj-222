@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "data": {
+    "txn_id": "T8",
+    "source_version": "lake-v1",
+    "position_range": [
+      800,
+      801
+    ],
+    "commit_seq": 8,
+    "arrival_seq": 8,
+    "late": false,
+    "row_count": 2,
+    "late_notified_consumers": []
+  }
+}

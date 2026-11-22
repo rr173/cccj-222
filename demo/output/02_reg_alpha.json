@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "data": {
+    "consumer": "alpha",
+    "source_version": "lake-v1",
+    "frontier_commit_seq": 0,
+    "frontier_end_pos": 0,
+    "retention_txns": 3,
+    "pull_limit": 2,
+    "need_before": true
+  }
+}

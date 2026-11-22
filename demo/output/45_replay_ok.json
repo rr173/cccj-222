@@ -1,0 +1,132 @@
+{
+  "ok": true,
+  "data": {
+    "consumer": "alpha",
+    "window": [
+      400,
+      502
+    ],
+    "retention_floor_pos": 400,
+    "deliveries": [
+      {
+        "txn_id": "T4",
+        "commit_seq": 4,
+        "txn_boundary": {
+          "begin_pos": 400,
+          "end_pos": 401
+        },
+        "source_position_range": [
+          400,
+          401
+        ],
+        "records": [
+          {
+            "row_id": "r3",
+            "generation": 1,
+            "net_op": "DELETE",
+            "position_min": 400,
+            "position_max": 400,
+            "source_positions": [
+              400
+            ],
+            "folded_from_ops": [
+              "DELETE"
+            ],
+            "before": {
+              "v": 30
+            },
+            "before_field_unknown": [],
+            "before_all_unknown": false,
+            "after": null,
+            "before_suppressed": false
+          },
+          {
+            "row_id": "r3",
+            "generation": 2,
+            "net_op": "INSERT",
+            "position_min": 401,
+            "position_max": 401,
+            "source_positions": [
+              401
+            ],
+            "folded_from_ops": [
+              "INSERT"
+            ],
+            "before": {},
+            "before_field_unknown": [],
+            "before_all_unknown": false,
+            "after": {
+              "tag": "new",
+              "v": 31
+            },
+            "before_suppressed": false
+          }
+        ],
+        "record_count": 2,
+        "late": false
+      },
+      {
+        "txn_id": "T5",
+        "commit_seq": 5,
+        "txn_boundary": {
+          "begin_pos": 500,
+          "end_pos": 502
+        },
+        "source_position_range": [
+          500,
+          502
+        ],
+        "records": [
+          {
+            "row_id": "r1",
+            "generation": 1,
+            "net_op": "UPDATE",
+            "position_min": 500,
+            "position_max": 501,
+            "source_positions": [
+              500,
+              501
+            ],
+            "folded_from_ops": [
+              "UPDATE",
+              "UPDATE"
+            ],
+            "before": {
+              "tag": "a",
+              "v": 1
+            },
+            "before_field_unknown": [],
+            "before_all_unknown": false,
+            "after": {
+              "v": 6
+            },
+            "before_suppressed": false
+          },
+          {
+            "row_id": "r2",
+            "generation": 1,
+            "net_op": "DELETE",
+            "position_min": 502,
+            "position_max": 502,
+            "source_positions": [
+              502
+            ],
+            "folded_from_ops": [
+              "DELETE"
+            ],
+            "before": {
+              "tag": "b",
+              "v": 11
+            },
+            "before_field_unknown": [],
+            "before_all_unknown": false,
+            "after": null,
+            "before_suppressed": false
+          }
+        ],
+        "record_count": 2,
+        "late": false
+      }
+    ]
+  }
+}

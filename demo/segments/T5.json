@@ -1,0 +1,39 @@
+{
+  "txn_id": "T5",
+  "ops": [
+    {
+      "source_position": 500,
+      "row_id": "r1",
+      "op": "UPDATE",
+      "before": {
+        "v": 1,
+        "tag": "a"
+      },
+      "after": {
+        "v": 5
+      }
+    },
+    {
+      "source_position": 501,
+      "row_id": "r1",
+      "op": "UPDATE",
+      "before": {
+        "v": 5,
+        "tag": "a"
+      },
+      "after": {
+        "v": 6
+      }
+    },
+    {
+      "source_position": 502,
+      "row_id": "r2",
+      "op": "DELETE",
+      "before": {
+        "v": 11,
+        "tag": "b"
+      },
+      "after": null
+    }
+  ]
+}

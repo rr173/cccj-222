@@ -1,0 +1,34 @@
+{
+  "txn_id": "T1",
+  "ops": [
+    {
+      "source_position": 100,
+      "row_id": "r1",
+      "op": "INSERT",
+      "before": null,
+      "after": {
+        "v": 1,
+        "tag": "a"
+      }
+    },
+    {
+      "source_position": 101,
+      "row_id": "r2",
+      "op": "INSERT",
+      "before": null,
+      "after": {
+        "v": 10,
+        "tag": "b"
+      }
+    },
+    {
+      "source_position": 102,
+      "row_id": "r3",
+      "op": "INSERT",
+      "before": null,
+      "after": {
+        "v": 30
+      }
+    }
+  ]
+}

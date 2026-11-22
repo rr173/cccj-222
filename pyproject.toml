@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "change-capture-service"
+version = "1.0.0"
+description = "Local SQLite-backed change subscription service with per-consumer replay"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["ccs"]
+
+[project.scripts]
+ccs = "ccs.cli:main"

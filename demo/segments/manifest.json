@@ -1,0 +1,24 @@
+{
+  "ingest_order": [
+    "T1",
+    "T2",
+    "T3",
+    "T4",
+    "T5",
+    "T7",
+    "T6",
+    "T8",
+    "T9"
+  ],
+  "files": [
+    "T1.json",
+    "T2.json",
+    "T3.json",
+    "T4.json",
+    "T5.json",
+    "T7.json",
+    "T6.json",
+    "T8.json",
+    "T9.json"
+  ]
+}

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# 统一启动器：隔离模式（-I，忽略 PYTHONPATH/用户站点，防止目录内植入模块劫持）
+# 仓库根通过 sys.path 注入，所有演练命令都经由这个包装器跑真实独立进程。
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec python3 -I -c "
+import sys
+sys.path.insert(0, '$ROOT')
+from ccs.cli import main
+sys.exit(main())
+" "$@"

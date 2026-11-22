@@ -1,0 +1,15 @@
+{
+  "txn_id": "T6",
+  "ops": [
+    {
+      "source_position": 600,
+      "row_id": "r1",
+      "op": "UPDATE",
+      "before_missing": true,
+      "after": {
+        "v": 60,
+        "late": true
+      }
+    }
+  ]
+}

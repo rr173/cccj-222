@@ -1,0 +1,50 @@
+{
+  "txn_id": "T3",
+  "ops": [
+    {
+      "source_position": 300,
+      "row_id": "r5",
+      "op": "INSERT",
+      "before": null,
+      "after": {
+        "v": 1,
+        "k": "x"
+      }
+    },
+    {
+      "source_position": 301,
+      "row_id": "r5",
+      "op": "UPDATE",
+      "before": {
+        "v": 1,
+        "k": "x"
+      },
+      "after": {
+        "v": 2
+      }
+    },
+    {
+      "source_position": 302,
+      "row_id": "r5",
+      "op": "UPDATE",
+      "before_missing": true,
+      "after": {
+        "v": 3,
+        "k": "z",
+        "w": 99
+      }
+    },
+    {
+      "source_position": 303,
+      "row_id": "r2",
+      "op": "UPDATE",
+      "before": {
+        "v": 10,
+        "tag": "b"
+      },
+      "after": {
+        "v": 11
+      }
+    }
+  ]
+}

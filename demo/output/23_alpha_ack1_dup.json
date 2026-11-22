@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "data": {
+    "consumer": "alpha",
+    "token": "abee9e8575874dd484f2f788f30575ff",
+    "advanced_from_seq": 0,
+    "advanced_to_seq": 2,
+    "advanced_to_end_pos": 202,
+    "txn_ids": [
+      "T1",
+      "T2"
+    ],
+    "duplicate_ack": true,
+    "late_notices_created": 0
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "txn_id": "T4",
+  "ops": [
+    {
+      "source_position": 400,
+      "row_id": "r3",
+      "op": "DELETE",
+      "before": {
+        "v": 30
+      },
+      "after": null
+    },
+    {
+      "source_position": 401,
+      "row_id": "r3",
+      "op": "INSERT",
+      "before": null,
+      "after": {
+        "v": 31,
+        "tag": "new"
+      }
+    }
+  ]
+}

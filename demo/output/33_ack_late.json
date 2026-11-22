@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "data": {
+    "consumer": "alpha",
+    "txn_id": "T6",
+    "status": "ACKED",
+    "already_acked": false,
+    "frontier_unchanged": true
+  }
+}

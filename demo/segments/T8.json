@@ -1,0 +1,24 @@
+{
+  "txn_id": "T8",
+  "ops": [
+    {
+      "source_position": 800,
+      "row_id": "r7",
+      "op": "INSERT",
+      "before": null,
+      "after": {
+        "v": 80
+      }
+    },
+    {
+      "source_position": 801,
+      "row_id": "r5",
+      "op": "DELETE",
+      "before": {
+        "v": 3,
+        "k": "z"
+      },
+      "after": null
+    }
+  ]
+}

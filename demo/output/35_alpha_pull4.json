@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "data": {
+    "token": "1c39067e028f4dc68da45b56fe9beb01",
+    "idempotent_replay": false,
+    "consumer": "alpha",
+    "source_version": "lake-v1",
+    "frontier_commit_seq": 6,
+    "pull_limit": 2,
+    "reserved_high_commit_seq": 7,
+    "reserved_high_end_pos": 600,
+    "deliveries": [
+      {
+        "txn_id": "T6",
+        "commit_seq": 7,
+        "txn_boundary": {
+          "begin_pos": 600,
+          "end_pos": 600
+        },
+        "source_position_range": [
+          600,
+          600
+        ],
+        "records": [
+          {
+            "row_id": "r1",
+            "generation": 1,
+            "net_op": "UPDATE",
+            "position_min": 600,
+            "position_max": 600,
+            "source_positions": [
+              600
+            ],
+            "folded_from_ops": [
+              "UPDATE"
+            ],
+            "before": {},
+            "before_field_unknown": [
+              "late",
+              "v"
+            ],
+            "before_all_unknown": true,
+            "after": {
+              "late": true,
+              "v": 60
+            },
+            "before_suppressed": false
+          }
+        ],
+        "record_count": 1
+      }
+    ],
+    "late_pending": 0
+  }
+}

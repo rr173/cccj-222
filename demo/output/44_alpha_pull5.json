@@ -1,0 +1,172 @@
+{
+  "ok": true,
+  "data": {
+    "token": "ea1d8b8c93654129854286697a26f08e",
+    "idempotent_replay": false,
+    "consumer": "alpha",
+    "source_version": "lake-v1",
+    "frontier_commit_seq": 6,
+    "pull_limit": 5,
+    "reserved_high_commit_seq": 9,
+    "reserved_high_end_pos": 902,
+    "deliveries": [
+      {
+        "txn_id": "T6",
+        "commit_seq": 7,
+        "txn_boundary": {
+          "begin_pos": 600,
+          "end_pos": 600
+        },
+        "source_position_range": [
+          600,
+          600
+        ],
+        "records": [
+          {
+            "row_id": "r1",
+            "generation": 1,
+            "net_op": "UPDATE",
+            "position_min": 600,
+            "position_max": 600,
+            "source_positions": [
+              600
+            ],
+            "folded_from_ops": [
+              "UPDATE"
+            ],
+            "before": {},
+            "before_field_unknown": [
+              "late",
+              "v"
+            ],
+            "before_all_unknown": true,
+            "after": {
+              "late": true,
+              "v": 60
+            },
+            "before_suppressed": false
+          }
+        ],
+        "record_count": 1
+      },
+      {
+        "txn_id": "T8",
+        "commit_seq": 8,
+        "txn_boundary": {
+          "begin_pos": 800,
+          "end_pos": 801
+        },
+        "source_position_range": [
+          800,
+          801
+        ],
+        "records": [
+          {
+            "row_id": "r5",
+            "generation": 1,
+            "net_op": "DELETE",
+            "position_min": 801,
+            "position_max": 801,
+            "source_positions": [
+              801
+            ],
+            "folded_from_ops": [
+              "DELETE"
+            ],
+            "before": {
+              "k": "z",
+              "v": 3
+            },
+            "before_field_unknown": [],
+            "before_all_unknown": false,
+            "after": null,
+            "before_suppressed": false
+          },
+          {
+            "row_id": "r7",
+            "generation": 1,
+            "net_op": "INSERT",
+            "position_min": 800,
+            "position_max": 800,
+            "source_positions": [
+              800
+            ],
+            "folded_from_ops": [
+              "INSERT"
+            ],
+            "before": {},
+            "before_field_unknown": [],
+            "before_all_unknown": false,
+            "after": {
+              "v": 80
+            },
+            "before_suppressed": false
+          }
+        ],
+        "record_count": 2
+      },
+      {
+        "txn_id": "T9",
+        "commit_seq": 9,
+        "txn_boundary": {
+          "begin_pos": 900,
+          "end_pos": 902
+        },
+        "source_position_range": [
+          900,
+          902
+        ],
+        "records": [
+          {
+            "row_id": "r3",
+            "generation": 2,
+            "net_op": "UPDATE",
+            "position_min": 902,
+            "position_max": 902,
+            "source_positions": [
+              902
+            ],
+            "folded_from_ops": [
+              "UPDATE"
+            ],
+            "before": {},
+            "before_field_unknown": [
+              "v"
+            ],
+            "before_all_unknown": true,
+            "after": {
+              "v": 32
+            },
+            "before_suppressed": false
+          },
+          {
+            "row_id": "r8",
+            "generation": 1,
+            "net_op": "INSERT",
+            "position_min": 900,
+            "position_max": 901,
+            "source_positions": [
+              900,
+              901
+            ],
+            "folded_from_ops": [
+              "INSERT",
+              "UPDATE"
+            ],
+            "before": {
+              "v": 90
+            },
+            "before_field_unknown": [],
+            "before_all_unknown": false,
+            "after": {
+              "v": 91
+            },
+            "before_suppressed": false
+          }
+        ],
+        "record_count": 2
+      }
+    ],
+    "late_pending": 0
+  }
+}

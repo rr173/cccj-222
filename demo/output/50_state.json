@@ -1,0 +1,145 @@
+{
+  "ok": true,
+  "data": {
+    "source_version": "lake-v1",
+    "transactions": [
+      {
+        "txn_id": "T4",
+        "commit_seq": 4,
+        "position_range": [
+          400,
+          401
+        ],
+        "arrival_seq": 4
+      },
+      {
+        "txn_id": "T5",
+        "commit_seq": 5,
+        "position_range": [
+          500,
+          502
+        ],
+        "arrival_seq": 5
+      },
+      {
+        "txn_id": "T7",
+        "commit_seq": 6,
+        "position_range": [
+          700,
+          701
+        ],
+        "arrival_seq": 6
+      },
+      {
+        "txn_id": "T6",
+        "commit_seq": 7,
+        "position_range": [
+          600,
+          600
+        ],
+        "arrival_seq": 7
+      },
+      {
+        "txn_id": "T8",
+        "commit_seq": 8,
+        "position_range": [
+          800,
+          801
+        ],
+        "arrival_seq": 8
+      },
+      {
+        "txn_id": "T9",
+        "commit_seq": 9,
+        "position_range": [
+          900,
+          902
+        ],
+        "arrival_seq": 9
+      }
+    ],
+    "consumers": [
+      {
+        "name": "alpha",
+        "active": true,
+        "source_version": "lake-v1",
+        "frontier_commit_seq": 6,
+        "frontier_end_pos": 701,
+        "retention_txns": 3,
+        "pull_limit": 5,
+        "need_before": true,
+        "late_open": 0
+      },
+      {
+        "name": "beta",
+        "active": false,
+        "source_version": "lake-v1",
+        "frontier_commit_seq": 3,
+        "frontier_end_pos": 303,
+        "retention_txns": 8,
+        "pull_limit": 3,
+        "need_before": false,
+        "late_open": 0
+      }
+    ],
+    "cleanup_plan": {
+      "active_consumers": [
+        "alpha"
+      ],
+      "per_consumer": {
+        "alpha": {
+          "frontier_commit_seq": 6,
+          "retention_txns": 3,
+          "protected_from_seq": 4
+        }
+      },
+      "global_protected_floor_seq": 4,
+      "late_pinned_txn_ids": [],
+      "deletable": [],
+      "protected": [
+        {
+          "txn_id": "T4",
+          "commit_seq": 4,
+          "reasons": [
+            "commit_seq 4 >= slowest-consumer retention floor 4"
+          ]
+        },
+        {
+          "txn_id": "T5",
+          "commit_seq": 5,
+          "reasons": [
+            "commit_seq 5 >= slowest-consumer retention floor 4"
+          ]
+        },
+        {
+          "txn_id": "T7",
+          "commit_seq": 6,
+          "reasons": [
+            "commit_seq 6 >= slowest-consumer retention floor 4"
+          ]
+        },
+        {
+          "txn_id": "T6",
+          "commit_seq": 7,
+          "reasons": [
+            "commit_seq 7 >= slowest-consumer retention floor 4"
+          ]
+        },
+        {
+          "txn_id": "T8",
+          "commit_seq": 8,
+          "reasons": [
+            "commit_seq 8 >= slowest-consumer retention floor 4"
+          ]
+        },
+        {
+          "txn_id": "T9",
+          "commit_seq": 9,
+          "reasons": [
+            "commit_seq 9 >= slowest-consumer retention floor 4"
+          ]
+        }
+      ]
+    }
+  }
+}
