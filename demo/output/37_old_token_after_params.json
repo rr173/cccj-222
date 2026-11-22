@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "error": {
-    "code": "TOKEN_PARAMS_STALE",
-    "message": "query parameters changed; old token rejected, please pull again"
-  }
-}

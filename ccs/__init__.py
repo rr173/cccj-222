@@ -7,6 +7,7 @@
   cleanup        清理：按全员保留需求 + 迟到保留裁决删除
   field_history  可选字段历史归档与审计查询（默认关闭，空库启用，不回填）
   inventory      可选当前库存物化：随摄入同事务增量维护库位汇总（默认关闭）
+  repro          可选可复现事务包归档与导出（默认关闭，空库启用，不回填）
 """
 from . import source_store, netchange, consumer_state, cleanup  # noqa: F401
 

@@ -11,7 +11,7 @@ import argparse
 import json
 import sys
 
-from ccs import source_store, consumer_state, cleanup, field_history, inventory
+from ccs import source_store, consumer_state, cleanup, field_history, inventory, repro
 from ccs.source_store import StoreError
 
 
@@ -104,6 +104,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("enable-inventory",
                    help="启用当前库存物化（仅限空库；启用后摄入同事务增量维护库存汇总）")
+
+    sub.add_parser("enable-repro",
+                   help="启用可复现事务包归档（仅限首次摄入前的单源空库；"
+                        "启用后摄入同事务保存原始段与行触达索引）")
+
+    ex = sub.add_parser("export-bundle",
+                        help="导出目标事务及其上游依赖的可复现事务包（JSON Lines）")
+    ex.add_argument("txn_id", help="目标事务标识")
+    ex.add_argument("--cutoff", type=int, required=True,
+                    help="知识截点：当时摄入返回的 arrival_seq")
+    ex.add_argument("output", help="输出文件路径（成功时原子替换）")
 
     sub.add_parser("inventory",
                    help="只读输出已提交最新 arrival_seq 与按库位名排序的库存 JSON 汇总")
@@ -206,6 +217,10 @@ def main(argv: list[str] | None = None) -> int:
             return _ok(field_history.enable_history(conn))
         if args.cmd == "enable-inventory":
             return _ok(inventory.enable_inventory(conn))
+        if args.cmd == "enable-repro":
+            return _ok(repro.enable_repro(conn))
+        if args.cmd == "export-bundle":
+            return _ok(repro.export_bundle(conn, args.txn_id, args.cutoff, args.output))
         if args.cmd == "inventory":
             return _ok(inventory.read_summary(conn))
         if args.cmd == "field-history":

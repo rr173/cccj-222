@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "error": {
-    "code": "WINDOW_OUTSIDE_RETENTION",
-    "message": "low_pos 1 is below retention floor 400; shorten the window or extend retention"
-  }
-}

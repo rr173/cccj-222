@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "error": {
-    "code": "JUMP_ACK",
-    "message": "refusing to ack seq 9: 4 transaction(s) after frontier 2 are not confirmed"
-  }
-}

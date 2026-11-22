@@ -13,6 +13,7 @@
 | `ccs/cleanup.py` | 按全员保留需求 + 迟到保留裁决删除，写审计日志 | 唯一允许删除**订阅数据**的地方；不碰归档 |
 | `ccs/field_history.py` | **可选**字段历史归档与审计查询（默认关闭）：摄入同事务写归档索引，按 `(行键, 字段, 位置窗口, 知识截点)` 输出历史区间 | 不回填旧库、不跨源、不感知消费者 |
 | `ccs/inventory.py` | **可选**当前库存物化（默认关闭）：摄入同事务增量维护"每个库位多少件、多少行贡献"的现存货表 | 不回填旧库、不跨源；只看 `after.bin`/`after.qty`；不改变订阅与字段查询合同 |
+| `ccs/repro.py` | **可选**可复现事务包归档与导出（默认关闭）：摄入同事务保存原始段与行触达索引；按目标 `txn_id`、截点 `K` 生成自包含 JSON Lines 包 | 不依赖消费者/令牌；不回填旧库、不跨源；不做新导入命令或复跑环境管理 |
 
 `oracle/fold_oracle.py` 是**独立预期模型**：不 import 任何 `ccs` 代码，
 用函数式 reduce + 世代状态机的另一种写法逐笔折叠，测试只拿它对拍，
@@ -51,8 +52,8 @@
 ## 3. 目录
 
 ```
-ccs/            产品代码（schema.sql + 四个模块 + field_history.py + inventory.py + cli.py）
-oracle/         独立预期模型（fold_oracle.py / history_oracle.py / inventory_oracle.py，禁止 import ccs）
+ccs/            产品代码（schema.sql + 四个模块 + field_history.py + inventory.py + repro.py + cli.py）
+oracle/         独立预期模型（fold_oracle.py / history_oracle.py / inventory_oracle.py / bundle_oracle.py，禁止 import ccs）
 tests/          确定性对拍、真实多进程 worker 与驱动、崩溃恢复、字段历史与库存物化演练
 demo/           演练资料、可复跑脚本、输出归档
 bin/ccs         隔离模式（python -I）CLI 启动器
@@ -62,11 +63,14 @@ bin/ccs         隔离模式（python -I）CLI 启动器
 
 ```bash
 # 全部自动化测试（确定性 oracle 对拍 + 双消费者/清理真实进程交错 + 崩溃恢复
-# + 字段历史归档/查询演练）
+# + 字段历史归档/查询演练 + 库存物化 + 可复现事务包导出）
 bash tests/run_all.sh
 
 # 端到端 CLI 演练：在临时空库上跑全部场景，逐命令 JSON/退出码归档到 demo/output/
 bash demo/run_demo.sh
+
+# 可复现事务包演练：启用 -> 摄入小日志 -> 导出 -> 清理后重开再导出 -> 空库按序重灌
+bash demo/repro_bundle_demo.sh
 ```
 
 ### 手动 CLI 示例
@@ -283,3 +287,103 @@ bin/ccs --db "$DB" inventory                        # 空库：arrival_seq=0, bi
 bin/ccs --db "$DB" ingest demo/segments/T1.json
 bin/ccs --db "$DB" inventory
 ```
+
+## 8. 可复现事务包（可选功能，默认关闭）
+
+下游计算对某笔事务出错时，排查人员要把它连同**真正需要的上游变更**带到一台
+空环境里复跑，而不是复制整个 CCS 库、导出一整段位置范围或依赖当时的消费者
+注册/令牌/确认进度。本功能从目标 `txn_id` 和当时摄入返回的到达截点 `K`
+生成一份自包含的复现包。
+
+### 启用（仅限首次摄入前的单源空库）
+
+```bash
+bin/ccs --db "$DB" enable-repro
+```
+
+- 只能在还没有任何事务的库上启用（`REPRO_REQUIRES_EMPTY_DB`）：不回填旧库；
+- 启用后 `ingest` 在**同一个 SQLite 事务**里保存原始段对象与行触达索引
+  （`repro_txn` / `repro_row_touch`），与摄入一同成功或失败；未启用的库连
+  `repro_*` 表都不创建，行为完全不变；
+- 启用后只支持单源实例，`switch-source` 被拒绝（`REPRO_SINGLE_SOURCE`）；
+- 可与 `enable-history`、`enable-inventory` 同时启用，互不改变对方输出；
+- 启用是幂等的，重复调用返回 `already_enabled: true`。
+
+### 导出
+
+```bash
+bin/ccs --db "$DB" export-bundle <txn_id> --cutoff <K> <output.jsonl>
+```
+
+取规则：
+
+1. 只承认 `arrival_seq <= K` 的已提交事务；目标也必须在其中，否则
+   `TARGET_NOT_VISIBLE`。`K` 超过已提交到达水位报 `CUTOFF_BEYOND_WATERMARK`；
+2. 从目标开始，对每笔已选事务涉及的每个 `row_id`，找出**源位置严格早于这笔
+   已选事务**、且也操作过该行的全部可见事务，整笔纳入；新纳入的事务继续产生
+   同样的要求，直到不再新增；
+3. 早晚按事务的源位置（区间起点）判断，**不用到达序号**；一次插入不截断向前
+   查找（要看到此前的行世代）；同一事务内的多次操作原样保留，绝不折叠成净
+   变化；
+4. 只输出选中的事务，按源位置从早到晚，每笔恰好一次。
+
+例：源序甲写 X、乙写 X 和 B、丙写 X、丁写 B 和 A、戊写 A。复现戊且乙可见时，
+包为甲、乙、丁、戊（丁→乙→甲的 X 触达链），不带丙（丙在乙之后）。若乙迟到、
+原截点看不到，原截点的包只有丁、戊；补到乙后用**原截点**重新导出仍是原来的包。
+
+### 文件格式
+
+UTF-8 JSON Lines。首行是元数据：
+
+```json
+{"format":"ccs-repro-bundle","format_version":1,"source_version":"lake-v1","cutoff":7,"target_txn_id":"T5","txn_count":4}
+```
+
+其后每行是一个**原始段对象**，与 `ingest` 接受的 JSON 完全同构（`{"txn_id", "ops"}`
+等），可直接按输出顺序逐行喂给 `ingest`。内容直接取自摄入时归档的原始段：
+段内操作次序、键的省略与显式 `null` 的区别全部保留；从不从 `change_row`、
+字段历史或库存表反推。
+
+### 扫描、内存与原子性
+
+- 候选定位只走 `repro_row_touch(row_id, begin_pos)` 索引：从已选事务涉及的行
+  出发找更早触达，与这些行无关的大量历史不进入搜索，不遍历整份源档；
+- 闭包工作集与"已选事务"放在独立磁盘 SQLite 暂存库；输出边生成边写同目录
+  临时文件，不把候选集合、依赖工作集或整份包囤在内存里；
+- 成功时 `os.replace` 原子替换同路径原文件；任何失败（截点越界、目标不可见、
+  写盘错误等）都删掉临时文件、不产生半份包，也不改动原文件内容；
+- 订阅清理仍只释放 `txn`/`change_row`/`late_notice`，`repro_*` 归档保留：
+  清理并重开库后仍可用同一截点导出同一份包；已记录的事务标识与源位置区间
+  永不复用（`DUP_TXN` / `POSITION_OVERLAP`）。
+
+### 手动示例
+
+```bash
+DB=$(mktemp -u)/repro.db
+bin/ccs --db "$DB" enable-repro
+bin/ccs --db "$DB" begin-source lake-v1
+bin/ccs --db "$DB" ingest demo/segments/T1.json     # 返回 arrival_seq=1
+bin/ccs --db "$DB" ingest demo/segments/T3.json     # 返回 arrival_seq=2
+bin/ccs --db "$DB" export-bundle T3 --cutoff 2 bug.jsonl
+# 空库按输出顺序逐段真实摄入：首行是元数据，其后每行就是一个可 ingest 的段
+EMPTY=$(mktemp -u)/empty.db
+bin/ccs --db "$EMPTY" begin-source lake-v1
+tail -n +2 bug.jsonl | while IFS= read -r segment; do
+  printf '%s\n' "$segment" > /tmp/repro_seg.json
+  bin/ccs --db "$EMPTY" ingest /tmp/repro_seg.json
+done
+```
+
+测试见 `tests/test_repro_bundle.py`（由 `tests/run_all.sh` 调度）：
+
+- **手算迟到例子**：乙可见/迟到两种截点、补到乙后原截点包字节不变；
+- **独立预期对拍** `oracle/bundle_oracle.py`（先全量比较每对可见事务再求传递
+  闭包，不 import 任何 `ccs` 代码）：自建小日志覆盖多条依赖路径汇到同一事务、
+  同一行在不同源位置被追查；随机小日志在随机到达顺序下每个截点逐次对拍；
+- **清理 + 重开**：删掉全部订阅数据后同一截点导出字节不变，标识/区间不可复用；
+- **空库真实重灌**：把包内每行按顺序用真实 CLI 摄入空库，逐操作核对源位置与
+  前/后镜像，并保留事务内多次操作；
+- **不扫整档的证据**：500 笔无关历史下导出只产生有界候选，追踪语句与
+  `EXPLAIN QUERY PLAN` 显示按行/事务定位的索引 SEARCH；
+- **原子性与错误码**：越界/不可见/写盘失败不覆盖原文件、不留下半份包或临时
+  文件，成功可替换同路径原文件；未启用库保持原行为。

@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "error": {
-    "code": "SOURCE_SWITCHED",
-    "message": "active source changed; re-register or re-pull is required"
-  }
-}
