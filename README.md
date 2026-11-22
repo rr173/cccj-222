@@ -10,11 +10,14 @@
 | `ccs/source_store.py` | 源版本、事务段摄入、位置唯一性、`commit_seq` 全序、身份世代 `generation`、到达序号 `arrival_seq` | 不感知消费者、不折叠 |
 | `ccs/netchange.py` | **单笔事务内**把同一行的多次修改折叠成净变化（纯函数） | 绝不跨事务合并、不碰消费者状态 |
 | `ccs/consumer_state.py` | 注册/撤销/改参、拉取预留令牌、连续前沿确认、迟到补发、重放窗口 | 不删除源数据 |
-| `ccs/cleanup.py` | 按全员保留需求 + 迟到保留裁决删除，写审计日志 | 唯一允许删除变更的地方 |
+| `ccs/cleanup.py` | 按全员保留需求 + 迟到保留裁决删除，写审计日志 | 唯一允许删除**订阅数据**的地方；不碰归档 |
+| `ccs/field_history.py` | **可选**字段历史归档与审计查询（默认关闭）：摄入同事务写归档索引，按 `(行键, 字段, 位置窗口, 知识截点)` 输出历史区间 | 不回填旧库、不跨源、不感知消费者 |
 
 `oracle/fold_oracle.py` 是**独立预期模型**：不 import 任何 `ccs` 代码，
 用函数式 reduce + 世代状态机的另一种写法逐笔折叠，测试只拿它对拍，
 预期数据从不调用产品的净变化函数生成。
+`oracle/history_oracle.py` 是字段历史的**独立参考实现**：栈式配对归约 +
+从位置 0 顺序重放（产品被禁止的求值路线），同样不 import 任何 `ccs` 代码。
 
 ## 2. 关键语义
 
@@ -45,9 +48,9 @@
 ## 3. 目录
 
 ```
-ccs/            产品代码（schema.sql + 四个模块 + cli.py）
-oracle/         独立预期模型（禁止 import ccs）
-tests/          确定性对拍、真实多进程 worker 与驱动、崩溃恢复
+ccs/            产品代码（schema.sql + 四个模块 + field_history.py + cli.py）
+oracle/         独立预期模型（fold_oracle.py / history_oracle.py，禁止 import ccs）
+tests/          确定性对拍、真实多进程 worker 与驱动、崩溃恢复、字段历史演练
 demo/           演练资料、可复跑脚本、输出归档
 bin/ccs         隔离模式（python -I）CLI 启动器
 ```
@@ -55,7 +58,8 @@ bin/ccs         隔离模式（python -I）CLI 启动器
 ## 4. 从空目录复跑
 
 ```bash
-# 全部自动化测试（确定性 oracle 对拍 + 双消费者/清理真实进程交错 + 崩溃恢复）
+# 全部自动化测试（确定性 oracle 对拍 + 双消费者/清理真实进程交错 + 崩溃恢复
+# + 字段历史归档/查询演练）
 bash tests/run_all.sh
 
 # 端到端 CLI 演练：在临时空库上跑全部场景，逐命令 JSON/退出码归档到 demo/output/
@@ -102,3 +106,77 @@ bin/ccs --db "$DB" state
 令牌换源/改参失效、撤销后其他消费者继续、重新注册前沿重置、清理依据与审计、窗口缩短。
 `tests/test_concurrent.py` 用 3+1 个真实进程安排确认与清理交错，并含 `os._exit(17)`
 崩溃恢复核对：不漏交付、不越过前沿、不提前删除。
+
+## 6. 字段历史审计查询（可选归档，默认关闭）
+
+对账场景：上周出了一版对账单，本周补到一笔源位置更早的迟到事务。审计员需要针对
+一个行键的一个字段，重现出单时（知识截点 `K`）看得到的值与来源，再用较新的截点
+查同一段源位置，厘清差异从哪里开始。订阅重放交付的是逐笔净变化，本功能给出的是
+按源位置解释的字段历史区间。
+
+### 启用（仅限空库）
+
+```bash
+bin/ccs --db "$DB" enable-history
+```
+
+- 只能在还没有任何事务的库上启用（`HISTORY_REQUIRES_EMPTY_DB`）：不回填旧库，
+  启用前已存在的数据不进归档；
+- 启用后 `ingest` 在**同一个 SQLite 事务**里写归档索引
+  （`hist_txn` / `hist_row_event` / `hist_field_write`），归档与摄入一同成功或失败；
+- 未启用的库保持原订阅行为：不写归档、不做归档校验，连归档表都不会创建；
+- 启用后只支持单源实例，`switch-source` 会被拒绝（`HISTORY_SINGLE_SOURCE`）。
+
+### 查询
+
+```bash
+bin/ccs --db "$DB" field-history <row_id> <field> <start> <end> --cutoff K
+```
+
+- 窗口为源位置半开区间 `[start, end)`；两端不必恰好有事务，窗首承接此前已经
+  生效的状态；
+- `K` 是正常摄入返回的 `arrival_seq`：先以 `arrival_seq <= K` 决定当时知道哪些
+  事务，再按这些事务的源位置解释字段历史。`K=0` 表示尚未见过任何事务；超出已
+  归档到达水位报错 `CUTOFF_BEYOND_WATERMARK`；
+- 一笔事务的效果在它的 `end_pos` 一起生效：窗口切到事务内部看不到中间写入，
+  同一事务内按操作位置决定最终状态（同一字段最后写者胜）；
+- 迟到事务只改变较新截点的答案，原截点的答案不变（归档只增不改）。
+
+### 输出区间语义
+
+输出按位置排序、无缝覆盖请求窗口的半开区间列表。每段标明：
+
+- `row_state`：`unknown` / `deleted` / `exists`；
+- `exists` 时 `lifecycle`：`{"insert_pos": N}`（插入开启新生命周期，以该插入的
+  操作位置标识）或 `"unknown"`（没看到插入的生命周期，不推测）。首条可见操作之前，
+  行是否存在未知；第一条是更新时，只知道它存在以及更新带来的字段；
+- `exists` 时 `field`：`{"state": "unknown"}` 或
+  `{"state": "known", "value": ..., "source": {"txn_id", "op_pos"}}`——来源是最后
+  实际写入它的事务标识与操作位置。更新只覆盖 `after` 明确包含的字段，没提供
+  `after` 时不改变任何字段，绝不拿前镜像补值；显式 JSON `null` 是已知值；
+- 删除使行处于已删除状态，直到下一次插入；这期间的更新不能恢复该行；重新插入
+  不继承旧字段或其来源；
+- 同一事务内不输出零长度中间区间；相邻区间只有在状态、生命周期、值和来源均相同
+  才合并——两次写入即使值一样，来源变了也会留下分界。
+
+### 与订阅清理的关系
+
+`cleanup` 仍只释放订阅数据（`txn` / `change_row` / `late_notice`），归档索引保留；
+已归档的事务标识与源位置区间永不复用（重用返回 `DUP_TXN` / `POSITION_OVERLAP`）。
+查询只走落盘的归档索引、只访问目标行的历史：窗首用索引定位已有状态，不从该行的
+第一笔事务顺序重放到起点，也不逐位置枚举窗口。
+
+### 手动示例
+
+```bash
+DB=$(mktemp -u)/hist.db
+bin/ccs --db "$DB" enable-history
+bin/ccs --db "$DB" begin-source lake-v1
+bin/ccs --db "$DB" ingest demo/segments/T1.json     # 返回 arrival_seq=1
+bin/ccs --db "$DB" ingest demo/segments/T3.json     # 返回 arrival_seq=2
+bin/ccs --db "$DB" field-history r5 v 150 400 --cutoff 1   # 出单时的答案
+bin/ccs --db "$DB" field-history r5 v 150 400 --cutoff 2   # 较新截点的答案
+```
+
+测试见 `tests/test_field_history.py`：手算小例子 + 独立参考实现矩阵对拍 +
+真实清理后重开核对 + 未启用库行为 + CLI 端到端。

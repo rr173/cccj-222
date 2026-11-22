@@ -80,6 +80,13 @@ def switch_source(conn: sqlite3.Connection, new_source_version: str) -> dict:
         return begin_source(conn, new_source_version)
     if old == new_source_version:
         raise StoreError("SAME_SOURCE", f"source already {old!r}")
+    from . import field_history  # 函数级导入，避免模块循环依赖
+    if field_history.history_enabled(conn):
+        raise StoreError(
+            "HISTORY_SINGLE_SOURCE",
+            "field history archive only supports a single-source instance; "
+            "switching source is refused while the archive is enabled",
+        )
     conn.execute("UPDATE meta SET source_version=? WHERE id=1", (new_source_version,))
     return {"old_source_version": old, "source_version": new_source_version}
 
@@ -234,6 +241,11 @@ def ingest_segment(conn: sqlite3.Connection, segment: dict) -> dict:
                     arrival_seq,
                 ),
             )
+        # 字段历史归档（可选功能）：与摄入同一个 SQLite 事务，一同成功或失败；
+        # 归档后事务标识与位置区间永不复用。未启用的库走原路径，零额外开销。
+        from . import field_history  # 函数级导入，避免模块循环依赖
+        if field_history.history_enabled(conn):
+            field_history.archive_segment(conn, segment, source_version, arrival_seq)
         conn.execute("COMMIT")
     except StoreError:
         conn.execute("ROLLBACK")

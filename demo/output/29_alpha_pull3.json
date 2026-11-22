@@ -1,7 +1,7 @@
 {
   "ok": true,
   "data": {
-    "token": "d657f85c5dd04edd9461d86d1c110485",
+    "token": "f8ee6c92619446348013dcedc4034165",
     "idempotent_replay": false,
     "consumer": "alpha",
     "source_version": "lake-v1",

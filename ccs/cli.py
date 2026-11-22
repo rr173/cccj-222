@@ -11,7 +11,7 @@ import argparse
 import json
 import sys
 
-from ccs import source_store, consumer_state, cleanup
+from ccs import source_store, consumer_state, cleanup, field_history
 from ccs.source_store import StoreError
 
 
@@ -98,6 +98,20 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("cleanup-plan")
     sub.add_parser("cleanup-run")
     sub.add_parser("cleanup-log")
+
+    sub.add_parser("enable-history",
+                   help="启用字段历史归档（仅限空库；启用后摄入同事务写归档索引）")
+
+    fh = sub.add_parser("field-history",
+                        help="查询指定行键/字段在源位置窗口 [start,end) 内、"
+                             "知识截点 K 下的历史区间")
+    fh.add_argument("row_id")
+    fh.add_argument("field")
+    fh.add_argument("start", type=int)
+    fh.add_argument("end", type=int)
+    fh.add_argument("--cutoff", type=int, required=True,
+                    help="知识截点：摄入返回的 arrival_seq；0 表示尚未见过任何事务")
+
     sub.add_parser("state", help="整体状态输出")
     return p
 
@@ -182,6 +196,11 @@ def main(argv: list[str] | None = None) -> int:
             return _ok(cleanup.run_cleanup(conn))
         if args.cmd == "cleanup-log":
             return _ok({"entries": cleanup.cleanup_log(conn)})
+        if args.cmd == "enable-history":
+            return _ok(field_history.enable_history(conn))
+        if args.cmd == "field-history":
+            return _ok(field_history.query_field_history(
+                conn, args.row_id, args.field, args.start, args.end, args.cutoff))
         if args.cmd == "state":
             return _ok(_state(conn))
         raise AssertionError(f"unhandled command {args.cmd}")
